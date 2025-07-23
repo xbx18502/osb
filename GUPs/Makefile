@@ -55,7 +55,7 @@ CPPFLAGS       = -I./include $(SHMEM_INC_PATH)
 LDFLAGS        = $(CFLAGS) $(SHMEM_LDFLAGS)
 LIBS           = $(SHMEM_LIBS) -lm
 
-TARGET         = gups
+TARGET         = gups.out
 
 SOURCES        = SHMEMRandomAccess.c 
 OBJECTS        = $(SOURCES:.c=.o) 

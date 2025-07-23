@@ -125,6 +125,11 @@ int main(int argc, char **argv)
   NumProcs = shmem_n_pes();
   MyProc = shmem_my_pe();
 
+  // Add missing initialization
+  for (logNumProcs = 0, i = 1; i < NumProcs; logNumProcs++, i <<= 1)
+    ; /* EMPTY */
+  PowerofTwo = (i == NumProcs);
+
   if (0 == MyProc) {
     outFile = stdout;
     setbuf(outFile, NULL);
@@ -160,7 +165,7 @@ int main(int argc, char **argv)
   if (*rAbort > 0) {
     if (MyProc == 0) fprintf(outFile, "Failed to allocate memory for the main table.\n");
     /* check all allocations in case there are new added and their order changes */
-    if (HPCC_Table) HPCC_free( HPCC_Table );
+    if (HPCC_Table) shmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
     goto failed_table;
   }
 
@@ -212,8 +217,20 @@ int main(int argc, char **argv)
 
   count = (s64Int *) shmem_malloc(sizeof(s64Int));
   ran = (s64Int *) shmem_malloc(sizeof(s64Int));
-  updates = (s64Int *) shmem_malloc(sizeof(s64Int) * numNodes);/* An array of length npes to avoid overwrites*/
-  all_updates = (s64Int *) shmem_malloc(sizeof(s64Int) * numNodes);/*: An array to collect sum*/
+  updates = (s64Int *) shmem_malloc(sizeof(s64Int) * numNodes);
+  all_updates = (s64Int *) shmem_malloc(sizeof(s64Int) * numNodes);
+
+  // Add allocation checks
+  if (!count || !ran || !updates || !all_updates) {
+    if (MyProc == 0) fprintf(outFile, "Failed to allocate memory for arrays.\n");
+    // Clean up any successful allocations
+    if (count) shmem_free(count);
+    if (ran) shmem_free(ran);
+    if (updates) shmem_free(updates);
+    if (all_updates) shmem_free(all_updates);
+    if (HPCC_Table) shmem_free(HPCC_Table);
+    goto failed_table;
+  }
 
   *ran = starts(4*GlobalStartMyProc);
 
@@ -224,7 +241,7 @@ int main(int argc, char **argv)
   
   for (j = 0; j < numNodes; j++){
     updates[j] = 0;
-    all_updates = 0;
+    all_updates[j] = 0;  // Fix: was incorrectly setting all_updates = 0
   }
   int verify=0; 
   u64Int remote_val;
@@ -238,15 +255,19 @@ int main(int argc, char **argv)
 
       /*Forces updates to remote PE only*/
       if(remote_proc == MyProc)
-        remote_proc = (remote_proc+1)/numNodes;
+        remote_proc = (remote_proc + 1) % numNodes;  // Fix: use modulo instead of division
 
-      remote_val  = shmem_longlong_g( &HPCC_Table[*ran & (LocalTableSize-1)],remote_proc);
-      remote_val ^= *ran;
-      shmem_longlong_p(&HPCC_Table[*ran & (LocalTableSize-1)],remote_val, remote_proc);
-      shmem_quiet();
+      // Add bounds checking
+      s64Int local_index = *ran & (LocalTableSize-1);
+      if (local_index >= 0 && local_index < LocalTableSize && remote_proc >= 0 && remote_proc < numNodes) {
+        remote_val  = shmem_longlong_g( &HPCC_Table[local_index], remote_proc);
+        remote_val ^= *ran;
+        shmem_longlong_p(&HPCC_Table[local_index], remote_val, remote_proc);
+        shmem_quiet();
 
-      if(verify)
-        shmem_longlong_inc(&updates[thisPeId], remote_proc);
+        if(verify)
+          shmem_longlong_inc(&updates[thisPeId], remote_proc);
+      }
   }
   
   shmem_barrier_all();
@@ -269,9 +290,9 @@ int main(int argc, char **argv)
     for (j = 1; j < numNodes; j++)
       updates[0] += updates[j];
     int cpu = sched_getcpu();
-    printf("PE%d CPU%d  updates:%d\n",MyProc,cpu,updates[0]);
+    printf("PE%d CPU%d  updates:%lld\n",MyProc,cpu,(long long)updates[0]);  // Fix: use proper format specifier
 
-    shmem_longlong_sum_to_all(all_updates,updates, NumProcs, 0,0, NumProcs,llpWrk, llpSync);
+    shmem_longlong_sum_to_all(all_updates,updates, numNodes, 0,0, numNodes,llpWrk, llpSync);  // Fix: use numNodes instead of NumProcs
     if(MyProc == 0){
       for (j = 1; j < numNodes; j++)
         all_updates[0] += all_updates[j];
@@ -284,28 +305,34 @@ int main(int argc, char **argv)
   shmem_barrier_all();
   /* End verification phase */
 
-
-  shmem_free(count);
+  // Fix memory deallocation order - free in reverse allocation order
+  shmem_free(all_updates);
   shmem_free(updates);
   shmem_free(ran);
+  shmem_free(count);
   shmem_barrier_all();
 
   /* Deallocate memory (in reverse order of allocation which should
  *      help fragmentation) */
 
-  HPCC_free( HPCC_Table );
+  shmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
   failed_table:
 
   if (0 == MyProc) if (outFile != stderr) fclose( outFile );
 
   shmem_barrier_all();
 
-  shmem_free(sAbort);
-  shmem_free(rAbort);
-  shmem_free(llpSync);
-  shmem_free(llpWrk);
-  shmem_free(ipSync);
+  // Add missing deallocations
+  shmem_free(NumErrors);
+  shmem_free(GlbNumErrors);
+  shmem_free(temp_GUPs);
+  shmem_free(GUPs);
   shmem_free(ipWrk);
+  shmem_free(ipSync);
+  shmem_free(llpWrk);
+  shmem_free(llpSync);
+  shmem_free(rAbort);
+  shmem_free(sAbort);
 
   shmem_barrier_all();
 
