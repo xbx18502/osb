@@ -9,5 +9,7 @@
 module purge
 module load gcc/8 ompi/4.1.6
 
+# module load nvidia/24.11 hpcx/2.17.1
+
 cd ../GUPs
 oshrun -np 8  --map-by ppr:8:node ./gups.out

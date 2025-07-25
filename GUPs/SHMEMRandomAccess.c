@@ -180,7 +180,7 @@ int main(int argc, char **argv)
     if (PowerofTwo)
         fprintf( outFile, "PE Main table size = 2^" FSTR64 " = " FSTR64 " words/PE\n",
                  (logTableSize - logNumProcs), TableSize/NumProcs );
-      else
+    else
         fprintf( outFile, "PE Main table size = (2^" FSTR64 ")/%d  = " FSTR64 " words/PE MAX\n",
                  logTableSize, NumProcs, LocalTableSize);
 
