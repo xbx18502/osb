@@ -39,7 +39,7 @@
 #
 # OpenSHMEM compiler commandss
 #
-CC             = oshcc
+CC             = /home/app/nvhpc/24.11/Linux_x86_64/24.11/compilers/bin/nvcc
 LD             = $(CC)
 
 CFLAGS         = -O3
@@ -47,9 +47,9 @@ CFLAGS         = -O3
 #
 # any extra paths/flags needed
 #
-SHMEM_INC_PATH =
-SHMEM_LDFLAGS  =
-SHMEM_LIBS     =
+SHMEM_INC_PATH = -I/home/app/gcc/8/ompi/4.1.6/include
+SHMEM_LDFLAGS  = -L/home/app/gcc/8/ompi/4.1.6/lib
+SHMEM_LIBS     = -loshmem
 
 CPPFLAGS       = -I./include $(SHMEM_INC_PATH)
 LDFLAGS        = $(CFLAGS) $(SHMEM_LDFLAGS)
