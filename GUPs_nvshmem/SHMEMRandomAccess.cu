@@ -36,15 +36,24 @@
 
 #include <sched.h>
 #include <hpcc.h>
-#include <stdio.h>
-#include "RandomAccess.h"
 #include <shmem.h>
+#include <nvshmem.h>
+#include "nvshmemx.h"
+#include "RandomAccess.h"
+
+// Host-only includes
+#ifndef __CUDA_ARCH__
+#include <stdio.h>
+#endif
+
 #define MAXTHREADS 256
 
 void
 do_abort(char* f)
 {
+#ifndef __CUDA_ARCH__
   fprintf(stderr, "%s\n", f);
+#endif
 }
 
 u64Int srcBuf[] = {
@@ -57,8 +66,9 @@ u64Int *HPCC_Table;
 
 int main(int argc, char **argv)
 {
+  nvshmemx_init_attr_t attr = NVSHMEMX_INIT_ATTR_INITIALIZER;
   int debug = 0;
-
+  int verify = 0; 
   s64Int i;
   int NumProcs, logNumProcs, MyProc;
   u64Int GlobalStartMyProc;
@@ -131,8 +141,10 @@ int main(int argc, char **argv)
   PowerofTwo = (i == NumProcs);
 
   if (0 == MyProc) {
+#ifndef __CUDA_ARCH__
     outFile = stdout;
     setbuf(outFile, NULL);
+#endif
   }
 
   TotalMem = 20000000; /* max single node memory */
@@ -163,7 +175,9 @@ int main(int argc, char **argv)
   shmem_barrier_all();
 
   if (*rAbort > 0) {
+#ifndef __CUDA_ARCH__
     if (MyProc == 0) fprintf(outFile, "Failed to allocate memory for the main table.\n");
+#endif
     /* check all allocations in case there are new added and their order changes */
     if (HPCC_Table) shmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
     goto failed_table;
@@ -175,6 +189,7 @@ int main(int argc, char **argv)
   NumUpdates = NumUpdates_Default;
 
   if (MyProc == 0) {
+#ifndef __CUDA_ARCH__
     fprintf( outFile, "Running on %d processors%s\n", NumProcs, PowerofTwo ? " (PowerofTwo)" : "");
     fprintf( outFile, "Total Main table size = 2^" FSTR64 " = " FSTR64 " words\n",logTableSize, TableSize );
     if (PowerofTwo)
@@ -185,6 +200,7 @@ int main(int argc, char **argv)
                  logTableSize, NumProcs, LocalTableSize);
 
     fprintf( outFile, "Default number of updates (RECOMMENDED) = " FSTR64 "\tand actually done = %d\n", NumUpdates_Default,ProcNumUpdates*NumProcs);
+#endif
   }
 
   /* Initialize main table */
@@ -222,7 +238,9 @@ int main(int argc, char **argv)
 
   // Add allocation checks
   if (!count || !ran || !updates || !all_updates) {
+#ifndef __CUDA_ARCH__
     if (MyProc == 0) fprintf(outFile, "Failed to allocate memory for arrays.\n");
+#endif
     // Clean up any successful allocations
     if (count) shmem_free(count);
     if (ran) shmem_free(ran);
@@ -243,7 +261,6 @@ int main(int argc, char **argv)
     updates[j] = 0;
     all_updates[j] = 0;  // Fix: was incorrectly setting all_updates = 0
   }
-  int verify=0; 
   u64Int remote_val;
 
   shmem_barrier_all();
@@ -259,14 +276,20 @@ int main(int argc, char **argv)
 
       // Add bounds checking
       s64Int local_index = *ran & (LocalTableSize-1);
-      if (local_index >= 0 && local_index < LocalTableSize && remote_proc >= 0 && remote_proc < numNodes) {
-        remote_val  = shmem_longlong_g( &HPCC_Table[local_index], remote_proc);
+      if (local_index >= 0 && local_index < LocalTableSize
+          && remote_proc >= 0 && remote_proc < numNodes) {
+        // cast to the SHMEM-required long long pointer/value types
+        remote_val = (u64Int)
+          shmem_longlong_g((long long *)&HPCC_Table[local_index],
+                           remote_proc);
         remote_val ^= *ran;
-        shmem_longlong_p(&HPCC_Table[local_index], remote_val, remote_proc);
+        shmem_longlong_p((long long *)&HPCC_Table[local_index],
+                         (long long)remote_val,
+                         remote_proc);
         shmem_quiet();
 
-        if(verify)
-          shmem_longlong_inc(&updates[thisPeId], remote_proc);
+        if (verify)
+          shmem_longlong_inc((long long *)&updates[thisPeId], remote_proc);
       }
   }
   
@@ -279,18 +302,22 @@ int main(int argc, char **argv)
   /* Print timing results */
   if (MyProc == 0){
     *GUPs = 1e-9*NumUpdates / RealTime;
+#ifndef __CUDA_ARCH__
     fprintf( outFile, "Real time used = %.6f seconds\n", RealTime );
     fprintf( outFile, "%.9f Billion(10^9) Updates    per second [GUP/s]\n",
              *GUPs );
     fprintf( outFile, "%.9f Billion(10^9) Updates/PE per second [GUP/s]\n",
              *GUPs / NumProcs );
+#endif
   }
  
   if(verify){
     for (j = 1; j < numNodes; j++)
       updates[0] += updates[j];
     int cpu = sched_getcpu();
-    printf("PE%d CPU%d  updates:%lld\n",MyProc,cpu,(long long)updates[0]);  // Fix: use proper format specifier
+#ifndef __CUDA_ARCH__
+    printf("PE%d CPU%d  updates:%lld\n",MyProc,cpu,(long long)updates[0]);
+#endif
 
     shmem_longlong_sum_to_all(all_updates,updates, numNodes, 0,0, numNodes,llpWrk, llpSync);  // Fix: use numNodes instead of NumProcs
     if(MyProc == 0){
@@ -318,7 +345,9 @@ int main(int argc, char **argv)
   shmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
   failed_table:
 
+#ifndef __CUDA_ARCH__
   if (0 == MyProc) if (outFile != stderr) fclose( outFile );
+#endif
 
   shmem_barrier_all();
 

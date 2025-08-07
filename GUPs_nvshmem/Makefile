@@ -44,12 +44,15 @@ LD             = $(CC)
 
 CFLAGS         = -O3
 
+NVSHMEM_HOME = /home/app/nvhpc/24.11/Linux_x86_64/24.11/comm_libs/12.6/nvshmem
+NVSHMEM_INC = $(NVSHMEM_HOME)/include
+NVSHMEM_LIB = $(NVSHMEM_HOME)/lib
 #
 # any extra paths/flags needed
 #
-SHMEM_INC_PATH = -I/home/app/gcc/8/ompi/4.1.6/include
-SHMEM_LDFLAGS  = -L/home/app/gcc/8/ompi/4.1.6/lib
-SHMEM_LIBS     = -loshmem
+SHMEM_INC_PATH = -I/home/app/gcc/8/ompi/4.1.6/include -I$(NVSHMEM_INC) 
+SHMEM_LDFLAGS  = -L/home/app/gcc/8/ompi/4.1.6/lib -L$(NVSHMEM_LIB) 
+SHMEM_LIBS     = -loshmem -lnvshmem
 
 CPPFLAGS       = -I./include $(SHMEM_INC_PATH)
 LDFLAGS        = $(CFLAGS) $(SHMEM_LDFLAGS)
@@ -57,10 +60,16 @@ LIBS           = $(SHMEM_LIBS) -lm
 
 TARGET         = gups.out
 
-SOURCES        = SHMEMRandomAccess.c 
-OBJECTS        = $(SOURCES:.c=.o) 
+SOURCES        = SHMEMRandomAccess.cu
+OBJECTS        = $(SOURCES:.cu=.o) 
 
 .PHONY:	all	clean
+
+# 在这里添加 GPU 架构标志
+NVCCFLAGS     = -arch=sm_70
+
+%.o: %.cu
+	$(CC) $(NVCCFLAGS) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 #
 # make starts here
@@ -80,3 +89,4 @@ clean:
 #
 
 SHMEMRandomAccess.o:	RandomAccess.h
+

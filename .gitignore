@@ -53,3 +53,5 @@ dkms.conf
 
 **/.cache/**
 scripts/*.stats
+
+**/build/**
