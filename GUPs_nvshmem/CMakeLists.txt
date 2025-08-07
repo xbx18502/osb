@@ -7,7 +7,7 @@ project(GUPs_nvshmem CUDA CXX)
 
 set(CMAKE_CUDA_COMPILER_FORCED TRUE)
 
-set(CMAKE_CUDA_ARCHITECTURES 90)
+set(CMAKE_CUDA_ARCHITECTURES 70)
 set(CMAKE_CUDA_COMPILER_FORCED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -17,7 +17,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # 仅让 nvcc 识别 -maxconstdata 选项
 # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-maxconstdata=0x18000")
 
-set(NVCC_GENCODE "arch=compute_90,code=sm_90")
+set(NVCC_GENCODE "arch=compute_70,code=sm_70")
 set(NVSHMEM_HOME "/home/app/nvhpc/24.11/Linux_x86_64/24.11/comm_libs/12.6/nvshmem")
 set(HYDRA_HOME "$NVSHMEM_HOME")
 set(CUDA_HOME "/home/app/nvhpc/24.11/Linux_x86_64/24.11/cuda/12.6")
@@ -55,12 +55,14 @@ target_include_directories(GUPs_nvshmem PRIVATE
     ${NVSHMEM_INC}
     ${CMAKE_SOURCE_DIR}/include
     ${SHMEM_INC_DIR}
+    ${MPI_HOME}/include
 )
 
 # Set link directories
 target_link_directories(GUPs_nvshmem PRIVATE
     ${SHMEM_LIB_DIR}
     ${NVSHMEM_LIB_DIR}
+    ${MPI_HOME}/lib
 )
 
 # 链接库
@@ -68,4 +70,5 @@ target_link_libraries(GUPs_nvshmem PRIVATE
   oshmem
   nvshmem
   m
+  mpi
 )
