@@ -54,21 +54,17 @@ set_target_properties(GUPs_nvshmem PROPERTIES
 target_include_directories(GUPs_nvshmem PRIVATE
     ${NVSHMEM_INC}
     ${CMAKE_SOURCE_DIR}/include
-    ${SHMEM_INC_DIR}
     ${MPI_HOME}/include
 )
 
 # Set link directories
 target_link_directories(GUPs_nvshmem PRIVATE
-    ${SHMEM_LIB_DIR}
     ${NVSHMEM_LIB_DIR}
     ${MPI_HOME}/lib
 )
 
 # 链接库
 target_link_libraries(GUPs_nvshmem PRIVATE
-  oshmem
-  nvshmem
-  m
   mpi
+  nvshmem
 )
