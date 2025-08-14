@@ -36,6 +36,7 @@ set(SHMEM_LIB_DIR   /home/app/gcc/8/ompi/4.1.6/lib)
 # 可执行 target
 add_executable(GUPs_nvshmem
   SHMEMRandomAccess.cu
+  RandomAccess.h
 )
 
 install(TARGETS GUPs_nvshmem

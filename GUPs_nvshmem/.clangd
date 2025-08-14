@@ -7,6 +7,8 @@ CompileFlags:
   - -include assert
   - -include ostream
   - -D__CUDA_ARCH__=520
+  - -D__CUDACC__
+  - -D__NVCC__
   - --cuda-gpu-arch=sm_70
   - --cuda-path=/home/app/nvhpc/24.11/Linux_x86_64/24.11/cuda/12.6
   - -std=c++11

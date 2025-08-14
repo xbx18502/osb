@@ -1,7 +1,7 @@
 /* -*- mode: C; tab-width: 2; indent-tabs-mode: nil; -*- */
 #include<time.h>
 #include<sys/time.h>
-
+#include <hpcc.h> 
 /* Random number generator */
 #ifdef LONG_IS_64BITS
 #define POLY 0x0000000000000007UL
