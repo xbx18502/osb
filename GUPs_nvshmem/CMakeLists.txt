@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 
-set(CUDAToolkit_ROOT "/home/app/nvhpc/24.11/Linux_x86_64/24.11/cuda/12.6")
-set(CMAKE_CUDA_COMPILER "/home/app/nvhpc/24.11/Linux_x86_64/24.11/cuda/12.6/bin/nvcc")
+set(CUDAToolkit_ROOT "/home/app/nvhpc/25.5/Linux_x86_64/25.5/cuda/12.9")
+set(CMAKE_CUDA_COMPILER "/home/app/nvhpc/25.5/Linux_x86_64/25.5/cuda/12.9/bin/nvcc")
 
 project(GUPs_nvshmem CUDA CXX)
 
@@ -18,14 +18,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-maxconstdata=0x18000")
 
 set(NVCC_GENCODE "arch=compute_70,code=sm_70")
-set(NVSHMEM_HOME "/home/app/nvhpc/24.11/Linux_x86_64/24.11/comm_libs/12.6/nvshmem")
+set(NVSHMEM_HOME "/home/app/nvhpc/25.5/Linux_x86_64/25.5/comm_libs/12.9/nvshmem")
 set(HYDRA_HOME "$NVSHMEM_HOME")
-set(CUDA_HOME "/home/app/nvhpc/24.11/Linux_x86_64/24.11/cuda/12.6")
-set(MPI_HOME "/home/app/nvhpc/24.11/Linux_x86_64/24.11/comm_libs/12.6/hpcx/hpcx-2.20/ompi")
-set(NCCL_HOME "/home/app/nvhpc/24.11/Linux_x86_64/24.11/comm_libs/nccl")
+set(CUDA_HOME "/home/app/nvhpc/25.5/Linux_x86_64/25.5/cuda/12.9")
+set(MPI_HOME "/home/app/nvhpc/25.5/Linux_x86_64/25.5/comm_libs/12.9/hpcx/hpcx-2.22.1/ompi")
+set(NCCL_HOME "/home/app/nvhpc/25.5/Linux_x86_64/25.5/comm_libs/nccl")
 
 # NVSHMEM 路径
-set(NVSHMEM_HOME    /home/app/nvhpc/24.11/Linux_x86_64/24.11/comm_libs/12.6/nvshmem)
+set(NVSHMEM_HOME    /home/app/nvhpc/25.5/Linux_x86_64/25.5/comm_libs/12.9/nvshmem)
 set(NVSHMEM_INC     ${NVSHMEM_HOME}/include)
 set(NVSHMEM_LIB_DIR ${NVSHMEM_HOME}/lib)
 

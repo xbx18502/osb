@@ -10,6 +10,8 @@ module purge
 module load gcc/8 ompi/4.1.6
 
 # module load nvidia/24.11 hpcx/2.17.1
+export OMPI_MCA_plm_rsh_agent="/usr/bin/pjrsh"
 
 cd ../GUPs
-oshrun -np 8  --map-by ppr:8:node ./gups.out
+oshrun -np 4  -hostfile ${PJM_O_NODEINF} \
+--map-by ppr:4:node ./gups.out

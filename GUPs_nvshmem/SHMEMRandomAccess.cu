@@ -137,7 +137,7 @@ __global__ void launch(int mype, int numProcesses,int MyProc,
 }
 int main(int argc, char **argv)
 {
-  printf("log 0 : start\n");
+  //printf("log 0 : start\n");
   int debug = 0;
   int verify = 0; 
   s64Int i;
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 
   double TotalMem;
   int PowerofTwo;
-  printf("log 0.03\n");
+  //printf("log 0.03\n");
   double timeBound = -1;  /* OPTIONAL time bound for execution time */
   u64Int NumUpdates_Default; /* Number of updates to table (suggested: 4x number of table entries) */
   u64Int NumUpdates;  /* actual number of updates to table - may be smaller than
@@ -174,7 +174,7 @@ int main(int argc, char **argv)
   double *GUPs;
   double *temp_GUPs;
 
-  printf("log 0.1\n");
+  //printf("log 0.1\n");
   int numthreads;
   int *sAbort, *rAbort;
  /* ------------------- */
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
   MPI_Init( &argc, &argv);
 	MPI_File mpi_inputFile, mpi_compressedFile;
 	MPI_Status status;
-	printf("log 0.15\n");
+	//printf("log 0.15\n");
 	// get rank and number of processes value
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
@@ -195,11 +195,11 @@ int main(int argc, char **argv)
   mype = nvshmem_team_my_pe(NVSHMEMX_TEAM_NODE);
 	int npes  = numProcesses;
   CUDA_CHECK(cudaSetDevice(mype));
-  printf("log 0.2\n");
+  //printf("log 0.2\n");
 	/*----------------------------------*/
 
   
-  printf("log 0.201\n");
+  //printf("log 0.201\n");
   /*Allocate symmetric memory*/
   sAbort = (int *)malloc(sizeof(int));
   rAbort = (int *)malloc(sizeof(int));
@@ -207,23 +207,23 @@ int main(int argc, char **argv)
   llpWrk = (long long *)malloc(sizeof(long long) *  _SHMEM_REDUCE_SYNC_SIZE);
   ipSync = (long *)malloc(sizeof(long) * _SHMEM_BCAST_SYNC_SIZE);
   ipWrk = (int *)malloc(sizeof(int) * _SHMEM_REDUCE_SYNC_SIZE);
-  printf("log 0.202\n");
+  //printf("log 0.202\n");
   GUPs = (double *)malloc(sizeof(double));
   temp_GUPs = (double *)malloc(sizeof(double));
   GlbNumErrors = (s64Int *)malloc(sizeof(s64Int));
   NumErrors = (s64Int *)malloc(sizeof(s64Int));
-  printf("log 0.203\n");
+  //printf("log 0.203\n");
   *GlbNumErrors = 0;
-  printf("log 0.204\n");
+  //printf("log 0.204\n");
   *NumErrors = 0;
-  printf("log 0.205\n");
+  //printf("log 0.205\n");
   for (i = 0; i < _SHMEM_BCAST_SYNC_SIZE; i += 1){
         llpSync[i] = _SHMEM_SYNC_VALUE;
         ipSync[i] = _SHMEM_SYNC_VALUE;
   }
-  printf("log 0.208\n");
+  //printf("log 0.208\n");
   *GUPs = 0.0;
-  printf("log 0.21\n");
+  //printf("log 0.21\n");
   NumProcs = numProcesses; // Use the number of processes from MPI
   MyProc = mype; // Use the rank from MPI
 
@@ -256,12 +256,12 @@ int main(int argc, char **argv)
   GlobalStartMyProc = (MinLocalTableSize * MyProc);
 
   *sAbort = 0;
-  printf("log 0.22\n");
+  //printf("log 0.22\n");
   /*Shmalloc HPCC_Table for RMA*/
   HPCC_Table = (u64Int *)malloc( sizeof(u64Int)*LocalTableSize );
   if (! HPCC_Table) *sAbort = 1;
 
-  printf("log 0.23\n");
+  //printf("log 0.23\n");
   //nvshmem_barrier_all();
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Allreduce(sAbort,rAbort,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
@@ -277,7 +277,7 @@ int main(int argc, char **argv)
     if (HPCC_Table) nvshmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
     goto failed_table;
   }
-  printf("log 0.28\n");
+  //printf("log 0.28\n");
   /* Default number of global updates to table: 4x number of table entries */
   NumUpdates_Default = 4 * TableSize;
   ProcNumUpdates = 4*LocalTableSize;
@@ -297,13 +297,13 @@ int main(int argc, char **argv)
     fprintf( outFile, "Default number of updates (RECOMMENDED) = " FSTR64 "\tand actually done = %d\n", NumUpdates_Default,ProcNumUpdates*NumProcs);
 #endif
   }
-  printf("log 0.3\n");
+  //printf("log 0.3\n");
   /* Initialize main table */
   for (i=0; i<LocalTableSize; i++)
     HPCC_Table[i] = MyProc;
-  printf("log 0.301\n");
+  //printf("log 0.301\n");
   nvshmem_barrier_all();
-  printf("log 0.302\n");
+  //printf("log 0.302\n");
   int j,k;
   int logTableLocal,ipartner,iterate,niterate;
   int ndata,nkeep,nsend,nrecv,index,nlocalm1;
@@ -317,12 +317,12 @@ int main(int argc, char **argv)
   int thisPeId;
   int numNodes;
   int count2;
-  printf("log 0.303\n");
+  //printf("log 0.303\n");
   s64Int *count;
   s64Int *updates;
   s64Int *all_updates;
   s64Int *ran;
-  printf("log 0.31\n");
+  //printf("log 0.31\n");
   thisPeId = mype; 
   numNodes = numProcesses;
 
@@ -338,7 +338,7 @@ int main(int argc, char **argv)
   ran_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int));
   updates_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int) * numNodes);
   all_updates_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int) * numNodes);
-  printf("log 0.32\n");
+  //printf("log 0.32\n");
   // Add allocation checks
   if (!count || !ran || !updates || !all_updates) {
 #ifndef __CUDA_ARCH__
@@ -352,13 +352,13 @@ int main(int argc, char **argv)
     if (HPCC_Table) free(HPCC_Table);
     goto failed_table;
   }
-  printf("log 0.33\n");
+  //printf("log 0.33\n");
   *ran = starts(4*GlobalStartMyProc);
-  printf("log 0.4\n");
+  //printf("log 0.4\n");
   niterate = ProcNumUpdates;
   logTableLocal = logTableSize - logNumProcs;
   nlocalm1 = LocalTableSize - 1;
-  printf("log 0.41\n");
+  //printf("log 0.41\n");
   u64Int* HPCC_Table_gpu;
   HPCC_Table_gpu = (u64Int*)nvshmem_malloc(sizeof(u64Int) * LocalTableSize);
   cudaMemcpy(HPCC_Table_gpu, HPCC_Table, sizeof(u64Int) * LocalTableSize, cudaMemcpyHostToDevice);
@@ -372,22 +372,21 @@ int main(int argc, char **argv)
   cudaMemcpy(updates_gpu, updates, sizeof(s64Int) * numNodes, cudaMemcpyHostToDevice);
   cudaMemcpy(all_updates_gpu, all_updates, sizeof(s64Int) * numNodes, cudaMemcpyHostToDevice);
   cudaMemcpy(count_gpu, count, sizeof(s64Int), cudaMemcpyHostToDevice);
-  printf("log 0.42\n");
+  
   nvshmem_barrier_all();
   /* Begin timed section */
-  printf("log 0.43\n");
+
   RealTime = -RTSEC();
-  printf("log 0.44\n");
   launch<<<1,1>>>(mype, numProcesses,MyProc, 
   LocalTableSize, remote_val, verify, ran_gpu,
  updates, HPCC_Table_gpu,ProcNumUpdates, logTableSize,logNumProcs);
-  printf("log 0.45\n");
   cudaDeviceSynchronize();
+
   nvshmem_barrier_all();
   /* End timed section */
   RealTime += RTSEC();
 
-  printf("log 1\n");
+  //printf("log 1\n");
 
   /* Print timing results */
   if (MyProc == 0){
@@ -423,12 +422,12 @@ int main(int argc, char **argv)
   /* End verification phase */
 
   // Fix memory deallocation order - free in reverse allocation order
-  nvshmem_free(all_updates);
-  nvshmem_free(updates);
-  nvshmem_free(ran);
-  nvshmem_free(count);
+  free(all_updates);
+  free(updates);
+  free(ran);
+  free(count);
   nvshmem_barrier_all();
-  printf("log 0.5\n");
+  //printf("log 0.5\n");
   /* Deallocate memory (in reverse order of allocation which should
  *      help fragmentation) */
 
@@ -442,19 +441,19 @@ int main(int argc, char **argv)
   nvshmem_barrier_all();
 
   // Add missing deallocations
-  nvshmem_free(NumErrors);
-  nvshmem_free(GlbNumErrors);
-  nvshmem_free(temp_GUPs);
-  nvshmem_free(GUPs);
-  nvshmem_free(ipWrk);
-  nvshmem_free(ipSync);
-  nvshmem_free(llpWrk);
-  nvshmem_free(llpSync);
-  nvshmem_free(rAbort);
-  nvshmem_free(sAbort);
+  free(NumErrors);
+  free(GlbNumErrors);
+  free(temp_GUPs);
+  free(GUPs);
+  free(ipWrk);
+  free(ipSync);
+  free(llpWrk);
+  free(llpSync);
+  free(rAbort);
+  free(sAbort);
 
   nvshmem_barrier_all();
-  printf("log 0.6\n");
+  //printf("log 0.6\n");
   nvshmem_finalize();
 
   return 0;
