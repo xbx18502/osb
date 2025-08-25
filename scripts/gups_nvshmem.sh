@@ -29,7 +29,7 @@ export OMPI_MCA_btl="^openib"
 export OMPI_MCA_plm_rsh_agent="/usr/bin/pjrsh"
 
 cd ../GUPs_nvshmem
-mpirun --display-allocation --display-map \
+mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   -hostfile ${PJM_O_NODEINF} \
   -np 8 --npernode 4 \
   -x PATH -x LD_LIBRARY_PATH -x CUDA_HOME -x NVSHMEM_HOME -x MPI_HOME -x NCCL_HOME \
