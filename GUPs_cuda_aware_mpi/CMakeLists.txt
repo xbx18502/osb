@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.18)
 set(CUDAToolkit_ROOT "/home/app/nvhpc/25.5/Linux_x86_64/25.5/cuda/12.9")
 set(CMAKE_CUDA_COMPILER "/home/app/nvhpc/25.5/Linux_x86_64/25.5/cuda/12.9/bin/nvcc")
 
-project(GUPs_oshm_gpu CUDA CXX)
+project(GUPs_cuda_aware_mpi CUDA CXX)
 
 set(CMAKE_CUDA_COMPILER_FORCED TRUE)
 
@@ -34,36 +34,33 @@ set(SHMEM_INC_DIR   /home/app/gcc/8/ompi/4.1.6/include)
 set(SHMEM_LIB_DIR   /home/app/gcc/8/ompi/4.1.6/lib)
 
 # 可执行 target
-add_executable(GUPs_oshm_gpu
+add_executable(GUPs_cuda_aware_mpi
   SHMEMRandomAccess.cu
   RandomAccess.h
 )
 
-install(TARGETS GUPs_oshm_gpu
+install(TARGETS GUPs_cuda_aware_mpi
   RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 
 # Enable device code linking
-set_target_properties(GUPs_oshm_gpu PROPERTIES
+set_target_properties(GUPs_cuda_aware_mpi PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     CUDA_RESOLVE_DEVICE_SYMBOLS ON
-    OUTPUT_NAME "gups_oshm_gpu_mem.out"
+    OUTPUT_NAME "gups_cuda_aware_mpi.out"
 )
 
 # Set include directories
-target_include_directories(GUPs_oshm_gpu PRIVATE
+target_include_directories(GUPs_cuda_aware_mpi PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${MPI_HOME}/include
-    ${SHMEM_INC_DIR}
 )
 
 # Set link directories
-target_link_directories(GUPs_oshm_gpu PRIVATE
+target_link_directories(GUPs_cuda_aware_mpi PRIVATE
     ${MPI_HOME}/lib
-    ${SHMEM_LIB_DIR}
 )
 
 # 链接库
-target_link_libraries(GUPs_oshm_gpu PRIVATE
+target_link_libraries(GUPs_cuda_aware_mpi PRIVATE
   mpi
-  oshmem
 )

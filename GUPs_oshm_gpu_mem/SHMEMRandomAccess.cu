@@ -41,7 +41,17 @@
 #include <shmem.h>
 #include <cuda.h>
 #define MAXTHREADS 256
+#define GPUS_PER_NODE 4  // 根据您的实际配置调整
 
+#define CUDA_CHECK(stmt)                                  \
+do {                                                      \
+    cudaError_t result = (stmt);                          \
+    if (cudaSuccess != result) {                          \
+        fprintf(stderr, "[%s:%d] CUDA failed with %s \n", \
+         __FILE__, __LINE__, cudaGetErrorString(result)); \
+        exit(-1);                                         \
+    }                                                     \
+} while (0)
 void
 do_abort(char* f)
 {
@@ -122,9 +132,11 @@ int main(int argc, char **argv)
   }
 
   *GUPs = -1;
-
+  
   NumProcs = shmem_n_pes();
   MyProc = shmem_my_pe();
+  printf("log 000\n");
+  CUDA_CHECK(cudaSetDevice(MyProc % GPUS_PER_NODE));
 
   // Add missing initialization
   for (logNumProcs = 0, i = 1; i < NumProcs; logNumProcs++, i <<= 1)
@@ -157,8 +169,11 @@ int main(int argc, char **argv)
   /*Shmalloc HPCC_Table for RMA*/
   HPCC_Table = (u64Int *)shmem_malloc( sizeof(u64Int)*LocalTableSize );
   if (! HPCC_Table) *sAbort = 1;
-
-
+  printf("log 050\n");
+  /** allocate a copy of hpcc table on gpu */
+  u64Int *HPCC_Table_gpu;
+  CUDA_CHECK(cudaMalloc( (void**)&HPCC_Table_gpu,  sizeof(u64Int)*LocalTableSize ));
+  printf("log 051\n");
   shmem_barrier_all();
   shmem_int_sum_to_all(rAbort, sAbort, 1, 0, 0, NumProcs, ipWrk, ipSync);
   shmem_barrier_all();
@@ -246,10 +261,13 @@ int main(int argc, char **argv)
   }
   int verify=0; 
   u64Int remote_val;
-
+  printf("log 075\n");
+  CUDA_CHECK(cudaMemcpy(HPCC_Table_gpu, HPCC_Table, sizeof(u64Int)*LocalTableSize, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaDeviceSynchronize()); // 确保GPU内存拷贝完成
   shmem_barrier_all();
   /* Begin timed section */
   RealTime = -RTSEC();
+  printf("log 100\n ");
   for (iterate = 0; iterate < niterate; iterate++) {
       *ran = (*ran << 1) ^ ((s64Int) *ran < ZERO64B ? POLY : ZERO64B);
       remote_proc = (*ran >> logTableLocal) & (numNodes - 1);
@@ -261,9 +279,31 @@ int main(int argc, char **argv)
       // Add bounds checking
       s64Int local_index = *ran & (LocalTableSize-1);
       if (local_index >= 0 && local_index < LocalTableSize && remote_proc >= 0 && remote_proc < numNodes) {
+        /** if MyProc == remote_proc, copy long long in addr (long long *)&HPCC_Table[local_index] 
+        from gpu memory to memory
+        */
+        if (MyProc == remote_proc) {
+          // Copy from GPU memory to CPU memory before local access
+          CUDA_CHECK(cudaMemcpy(&HPCC_Table[local_index], &HPCC_Table_gpu[local_index], 
+                               sizeof(u64Int), cudaMemcpyDeviceToHost));
+          CUDA_CHECK(cudaDeviceSynchronize()); // 添加设备同步
+        }
+        
         remote_val  = shmem_longlong_g( (long long *)&HPCC_Table[local_index], remote_proc);
         remote_val ^= *ran;
         shmem_longlong_p((long long *)&HPCC_Table[local_index], remote_val, remote_proc);
+        
+        /**
+        if MyProc == remote_proc, copy long long in addr (long long *)&HPCC_Table[local_index]
+         from memory to gpu memory
+         */
+        if (MyProc == remote_proc) {
+          // Copy from CPU memory back to GPU memory after local update
+          CUDA_CHECK(cudaMemcpy(&HPCC_Table_gpu[local_index], &HPCC_Table[local_index], 
+                               sizeof(u64Int), cudaMemcpyHostToDevice));
+          CUDA_CHECK(cudaDeviceSynchronize()); // 添加设备同步
+        }
+        
         shmem_quiet();
 
         if(verify)

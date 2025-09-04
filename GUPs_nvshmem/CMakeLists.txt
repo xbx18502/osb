@@ -40,13 +40,13 @@ add_executable(GUPs_nvshmem
 )
 
 install(TARGETS GUPs_nvshmem
-  RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
+  RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
 
 # Enable device code linking
 set_target_properties(GUPs_nvshmem PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     CUDA_RESOLVE_DEVICE_SYMBOLS ON
-    OUTPUT_NAME "gups.out"
+    OUTPUT_NAME "gups_nvshmem.out"
     # INSTALL_RPATH "/home/tmp/libosmcomp;${SHMEM_LIB_DIR};${NVSHMEM_LIB_DIR}"
     # BUILD_RPATH "/home/tmp/libosmcomp;${SHMEM_LIB_DIR};${NVSHMEM_LIB_DIR}"
 )
@@ -54,7 +54,7 @@ set_target_properties(GUPs_nvshmem PROPERTIES
 # Set include directories
 target_include_directories(GUPs_nvshmem PRIVATE
     ${NVSHMEM_INC}
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${MPI_HOME}/include
 )
 

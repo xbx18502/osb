@@ -28,6 +28,14 @@ export OMPI_MCA_btl_openib_allow_ib=0
 export OMPI_MCA_btl="^openib"
 export OMPI_MCA_plm_rsh_agent="/usr/bin/pjrsh"
 
+# ---------------------------------------------------
+export OMPI_MCA_opal_cuda_support=true
+export UCX_MEMTYPE_CACHE=n
+export UCX_TLS=rc,sm,cuda_copy,cuda_ipc     # 安全的GPU传输
+export UCX_RNDV_SCHEME=put_zcopy            # 使用put方式
+export UCX_RNDV_THRESH=8192                 # 设置阈值
+export HCOLL_ENABLE_GPU=1
+# ---------------------------------------------------
 cd ../bin
 mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   -hostfile ${PJM_O_NODEINF} \
@@ -39,4 +47,4 @@ mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   --mca btl ^openib \
   --mca orte_base_help_aggregate 0 \
   --mca plm_rsh_args "-o StrictHostKeyChecking=no" \
-  ./gups_oshm_gpu_mem.out
+  ./gups_cuda_aware_mpi.out

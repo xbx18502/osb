@@ -1,0 +1,7 @@
+[
+    {
+        "command": "cc -c -O3 -I./include -o SHMEMRandomAccess.o -I/home/app/gcc/8/ompi/4.1.6/include -pthread SHMEMRandomAccess.c",
+        "directory": "/home/pj24001791/ku40000464/osb/GUPs",
+        "file": "/home/pj24001791/ku40000464/osb/GUPs/SHMEMRandomAccess.c"
+    }
+]

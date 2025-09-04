@@ -33,42 +33,14 @@
  *
  *
  */
-#include "device_host/nvshmem_types.h"
-#include "host/nvshmem_api.h"
-#include "host/nvshmem_coll_api.h"
-#include "mpi.h"
-#include "nvshmem.h"
-#include "nvshmemx.h"
+
 #include <sched.h>
 #include <hpcc.h>
-#include "RandomAccess.h"
-
-//#include <shmem.h>
-// Host-only includes
-#ifndef __CUDA_ARCH__
 #include <stdio.h>
-#endif
-
+#include "RandomAccess.h"
+#include <mpi.h>
+#include <cuda_runtime.h>
 #define MAXTHREADS 256
-#define _SHMEM_BCAST_SYNC_SIZE  2
-#define _SHMEM_REDUCE_SYNC_SIZE  3
-#define _SHMEM_SYNC_VALUE  -1
-
-void
-do_abort(char* f)
-{
-#ifndef __CUDA_ARCH__
-  fprintf(stderr, "%s\n", f);
-#endif
-}
-
-u64Int srcBuf[] = {
-  0xb1ffd1da
-};
-u64Int targetBuf[sizeof(srcBuf) / sizeof(u64Int)];
-
-/* Allocate main table (in global memory) */
-u64Int *HPCC_Table;
 
 #define CUDA_CHECK(stmt)                                  \
 do {                                                      \
@@ -79,67 +51,29 @@ do {                                                      \
         exit(-1);                                         \
     }                                                     \
 } while (0)
-__device__ void run(int mype, int numProcesses,int MyProc, 
-  int LocalTableSize, int remote_val, int verify, s64Int *ran_gpu,
- s64Int *updates, u64Int *HPCC_Table, int ProcNumUpdates,
-int logTableSize, int logNumProcs) {
-  int j,k;
-  int logTableLocal,ipartner,iterate,niterate;
-  int ndata,nkeep,nsend,nrecv,index,nlocalm1;
-  int numthrds;
-  u64Int datum,procmask;
-  int remote_proc, offset;
-  s64Int remotecount;
-  int thisPeId;
-  int numNodes;
-  int count2;
+#define MAXTHREADS 256
+#define _SHMEM_BCAST_SYNC_SIZE  2
+#define _SHMEM_REDUCE_SYNC_SIZE  3
+#define _SHMEM_SYNC_VALUE  -1
 
-  thisPeId = mype; 
-  numNodes = numProcesses;
-  niterate = ProcNumUpdates;
-  logTableLocal = logTableSize - logNumProcs;
-  nlocalm1 = LocalTableSize - 1;
-  for (iterate = 0; iterate < niterate; iterate++) {
-      *ran_gpu = (*ran_gpu << 1) ^ ((s64Int) *ran_gpu < ZERO64B ? POLY : ZERO64B);
-      remote_proc = (*ran_gpu >> logTableLocal) & (numNodes - 1);
-
-      /*Forces updates to remote PE only*/
-      if(remote_proc == MyProc)
-        remote_proc = (remote_proc + 1) % numNodes;  // Fix: use modulo instead of division
-
-      // Add bounds checking
-      s64Int local_index = *ran_gpu & (LocalTableSize-1);
-      if (local_index >= 0 && local_index < LocalTableSize
-          && remote_proc >= 0 && remote_proc < numNodes) {
-        // cast to the SHMEM-required long long pointer/value types
-        remote_val = (u64Int)
-          nvshmem_longlong_g((long long *)&HPCC_Table[local_index],
-                           remote_proc);
-        remote_val ^= *ran_gpu;
-        nvshmem_longlong_p((long long *)&HPCC_Table[local_index],
-                         (long long)remote_val,
-                         remote_proc);
-        nvshmem_quiet();
-
-        if (verify)
-          //nvshmem_longlong_atomic_inc((long long *)&updates[thisPeId], remote_proc);
-        atomicInc((uint*)&updates[thisPeId], 1);
-      }
-  }
+void
+do_abort(char* f)
+{
+  fprintf(stderr, "%s\n", f);
 }
 
-__global__ void launch(int mype, int numProcesses,int MyProc, 
-  int LocalTableSize, int remote_val, int verify, s64Int *ran_gpu,
- s64Int *updates, u64Int *HPCC_Table_gpu, int ProcNumUpdates, int logTableSize, int logNumProcs) {
-  run(mype, numProcesses,MyProc, 
-  LocalTableSize, remote_val, verify, ran_gpu,
- updates, HPCC_Table_gpu,ProcNumUpdates, logTableSize, logNumProcs);
-}
+u64Int srcBuf[] = {
+  0xb1ffd1da
+};
+u64Int targetBuf[sizeof(srcBuf) / sizeof(u64Int)];
+
+/* Allocate main table (in global memory) */
+u64Int *HPCC_Table;
+
 int main(int argc, char **argv)
 {
-  //printf("log 0 : start\n");
   int debug = 0;
-  int verify = 0; 
+
   s64Int i;
   int NumProcs, logNumProcs, MyProc;
   u64Int GlobalStartMyProc;
@@ -153,7 +87,7 @@ int main(int argc, char **argv)
 
   double TotalMem;
   int PowerofTwo;
-  //printf("log 0.03\n");
+
   double timeBound = -1;  /* OPTIONAL time bound for execution time */
   u64Int NumUpdates_Default; /* Number of updates to table (suggested: 4x number of table entries) */
   u64Int NumUpdates;  /* actual number of updates to table - may be smaller than
@@ -174,13 +108,13 @@ int main(int argc, char **argv)
   double *GUPs;
   double *temp_GUPs;
 
-  //printf("log 0.1\n");
+
   int numthreads;
   int *sAbort, *rAbort;
- /* ------------------- */
+
+   /* ------------------- */
   int rank, numProcesses;
   MPI_Init( &argc, &argv);
-	// MPI_File mpi_inputFile, mpi_compressedFile;
 	MPI_Status status;
 	//printf("log 0.15\n");
 	// get rank and number of processes value
@@ -188,45 +122,39 @@ int main(int argc, char **argv)
 	MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
 	// init nvshmem
 	MPI_Comm mpi_comm = MPI_COMM_WORLD;
-	nvshmemx_init_attr_t attr = NVSHMEMX_INIT_ATTR_INITIALIZER;
-	int mype;
-	attr.mpi_comm = &mpi_comm;
-	nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
-  mype = nvshmem_my_pe();
-  int local_pe = nvshmem_team_my_pe(NVSHMEMX_TEAM_NODE);
-	int npes  = numProcesses;
-  CUDA_CHECK(cudaSetDevice(local_pe));
+	
+  // GPU设备设置
+  int device_count;
+  CUDA_CHECK(cudaGetDeviceCount(&device_count));
+  CUDA_CHECK(cudaSetDevice(rank % device_count));
   //printf("log 0.2\n");
 	/*----------------------------------*/
 
-  
-  //printf("log 0.201\n");
   /*Allocate symmetric memory*/
   sAbort = (int *)malloc(sizeof(int));
   rAbort = (int *)malloc(sizeof(int));
-  llpSync = (long *)malloc(sizeof(long) * _SHMEM_BCAST_SYNC_SIZE);
-  llpWrk = (long long *)malloc(sizeof(long long) *  _SHMEM_REDUCE_SYNC_SIZE);
-  ipSync = (long *)malloc(sizeof(long) * _SHMEM_BCAST_SYNC_SIZE);
+  llpSync = (long *)malloc(sizeof(long) *_SHMEM_BCAST_SYNC_SIZE);
+  llpWrk = (long long *)malloc(sizeof(long long) * _SHMEM_REDUCE_SYNC_SIZE);
+  ipSync = (long *)malloc(sizeof(long) *_SHMEM_BCAST_SYNC_SIZE);
   ipWrk = (int *)malloc(sizeof(int) * _SHMEM_REDUCE_SYNC_SIZE);
-  //printf("log 0.202\n");
+
   GUPs = (double *)malloc(sizeof(double));
   temp_GUPs = (double *)malloc(sizeof(double));
   GlbNumErrors = (s64Int *)malloc(sizeof(s64Int));
   NumErrors = (s64Int *)malloc(sizeof(s64Int));
-  //printf("log 0.203\n");
+
   *GlbNumErrors = 0;
-  //printf("log 0.204\n");
   *NumErrors = 0;
-  //printf("log 0.205\n");
+
   for (i = 0; i < _SHMEM_BCAST_SYNC_SIZE; i += 1){
-        llpSync[i] = _SHMEM_SYNC_VALUE;
         ipSync[i] = _SHMEM_SYNC_VALUE;
+        llpSync[i] = _SHMEM_SYNC_VALUE;
   }
-  //printf("log 0.208\n");
-  *GUPs = 0.0;
-  //printf("log 0.21\n");
-  NumProcs = numProcesses; // Use the number of processes from MPI
-  MyProc = mype; // Use the rank from MPI
+
+  *GUPs = -1;
+
+  NumProcs = numProcesses;
+  MyProc = rank;
 
   // Add missing initialization
   for (logNumProcs = 0, i = 1; i < NumProcs; logNumProcs++, i <<= 1)
@@ -234,10 +162,8 @@ int main(int argc, char **argv)
   PowerofTwo = (i == NumProcs);
 
   if (0 == MyProc) {
-#ifndef __CUDA_ARCH__
     outFile = stdout;
     setbuf(outFile, NULL);
-#endif
   }
 
   TotalMem = 20000000; /* max single node memory */
@@ -257,35 +183,32 @@ int main(int argc, char **argv)
   GlobalStartMyProc = (MinLocalTableSize * MyProc);
 
   *sAbort = 0;
-  //printf("log 0.22\n");
+
   /*Shmalloc HPCC_Table for RMA*/
   HPCC_Table = (u64Int *)malloc( sizeof(u64Int)*LocalTableSize );
+  u64Int *HPCC_Table_gpu;
+  CUDA_CHECK(cudaMalloc((void**)&HPCC_Table_gpu, sizeof(u64Int)*LocalTableSize));
+  
   if (! HPCC_Table) *sAbort = 1;
 
-  //printf("log 0.23\n");
-  //nvshmem_barrier_all();
   MPI_Barrier(MPI_COMM_WORLD);
-  MPI_Allreduce(sAbort,rAbort,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+  //shmem_int_sum_to_all(rAbort, sAbort, 1, 0, 0, NumProcs, ipWrk, ipSync);
+  MPI_Allreduce(sAbort, rAbort, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
   MPI_Barrier(MPI_COMM_WORLD);
-  //nvshmem_int_sum_reduce(NVSHMEMX_TEAM_NODE,rAbort,sAbort,1);
-  //nvshmem_barrier_all();
 
   if (*rAbort > 0) {
-#ifndef __CUDA_ARCH__
     if (MyProc == 0) fprintf(outFile, "Failed to allocate memory for the main table.\n");
-#endif
     /* check all allocations in case there are new added and their order changes */
-    if (HPCC_Table) nvshmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
-    goto failed_table;
+    if (HPCC_Table) free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
+    //goto failed_table;
   }
-  //printf("log 0.28\n");
+
   /* Default number of global updates to table: 4x number of table entries */
   NumUpdates_Default = 4 * TableSize;
   ProcNumUpdates = 4*LocalTableSize;
   NumUpdates = NumUpdates_Default;
 
   if (MyProc == 0) {
-#ifndef __CUDA_ARCH__
     fprintf( outFile, "Running on %d processors%s\n", NumProcs, PowerofTwo ? " (PowerofTwo)" : "");
     fprintf( outFile, "Total Main table size = 2^" FSTR64 " = " FSTR64 " words\n",logTableSize, TableSize );
     if (PowerofTwo)
@@ -296,15 +219,14 @@ int main(int argc, char **argv)
                  logTableSize, NumProcs, LocalTableSize);
 
     fprintf( outFile, "Default number of updates (RECOMMENDED) = " FSTR64 "\tand actually done = %d\n", NumUpdates_Default,ProcNumUpdates*NumProcs);
-#endif
   }
-  //printf("log 0.3\n");
+
   /* Initialize main table */
   for (i=0; i<LocalTableSize; i++)
     HPCC_Table[i] = MyProc;
-  //printf("log 0.301\n");
-  nvshmem_barrier_all();
-  //printf("log 0.302\n");
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
   int j,k;
   int logTableLocal,ipartner,iterate,niterate;
   int ndata,nkeep,nsend,nrecv,index,nlocalm1;
@@ -318,99 +240,154 @@ int main(int argc, char **argv)
   int thisPeId;
   int numNodes;
   int count2;
-  //printf("log 0.303\n");
+
   s64Int *count;
   s64Int *updates;
   s64Int *all_updates;
   s64Int *ran;
-  //printf("log 0.31\n");
-  thisPeId = mype; 
+
+  thisPeId = MyProc;
   numNodes = numProcesses;
 
   count = (s64Int *) malloc(sizeof(s64Int));
   ran = (s64Int *) malloc(sizeof(s64Int));
   updates = (s64Int *) malloc(sizeof(s64Int) * numNodes);
   all_updates = (s64Int *) malloc(sizeof(s64Int) * numNodes);
-  s64Int *count_gpu;
-  s64Int *updates_gpu;
-  s64Int *all_updates_gpu;
-  s64Int *ran_gpu;
-  count_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int));
-  ran_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int));
-  updates_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int) * numNodes);
-  all_updates_gpu = (s64Int *) nvshmem_malloc(sizeof(s64Int) * numNodes);
-  //printf("log 0.32\n");
+
   // Add allocation checks
   if (!count || !ran || !updates || !all_updates) {
-#ifndef __CUDA_ARCH__
     if (MyProc == 0) fprintf(outFile, "Failed to allocate memory for arrays.\n");
-#endif
     // Clean up any successful allocations
-    if (count) nvshmem_free(count);
-    if (ran) nvshmem_free(ran);
-    if (updates) nvshmem_free(updates);
-    if (all_updates) nvshmem_free(all_updates);
+    if (count) free(count);
+    if (ran) free(ran);
+    if (updates) free(updates);
+    if (all_updates) free(all_updates);
     if (HPCC_Table) free(HPCC_Table);
-    goto failed_table;
+    //goto failed_table;
   }
-  //printf("log 0.33\n");
+
   *ran = starts(4*GlobalStartMyProc);
-  //printf("log 0.4\n");
+
   niterate = ProcNumUpdates;
   logTableLocal = logTableSize - logNumProcs;
   nlocalm1 = LocalTableSize - 1;
-  //printf("log 0.41\n");
-  u64Int* HPCC_Table_gpu;
-  HPCC_Table_gpu = (u64Int*)nvshmem_malloc(sizeof(u64Int) * LocalTableSize);
-  cudaMemcpy(HPCC_Table_gpu, HPCC_Table, sizeof(u64Int) * LocalTableSize, cudaMemcpyHostToDevice);
+
   
   for (j = 0; j < numNodes; j++){
     updates[j] = 0;
     all_updates[j] = 0;  // Fix: was incorrectly setting all_updates = 0
   }
+  int verify=0; 
+  printf("log 100\n");
+  // 改进的MPI窗口创建
+  MPI_Win mpi_win;
+  MPI_Info win_info;
+  MPI_Info_create(&win_info);
+  printf("log 101\n");
+  // 关键：明确告诉MPI这是GPU内存
+  MPI_Info_set(win_info, "alloc_shm", "false");  // 禁用共享内存优化
+  MPI_Info_set(win_info, "same_disp_unit", "true");
+  MPI_Info_set(win_info, "no_locks", "true");     // 禁用锁优化
+  printf("log 102\n");
+  // 检查CUDA-Aware MPI支持
+  // char *ompi_version;
+  // int flag;
+  // MPI_Get_processor_name(NULL, &flag); // 触发初始化
+
+  printf("log 103\n");
+  if (MyProc == 0) {
+    // 检查环境变量
+    char *cuda_support = getenv("OMPI_MCA_opal_cuda_support");
+    printf("CUDA support environment: %s\n", cuda_support ? cuda_support : "not set");
+    
+    // 尝试检测CUDA-Aware功能
+    printf("Attempting to create MPI window on GPU memory...\n");
+  }
+  printf("log 104\n");
+  int ret = MPI_Win_create(HPCC_Table_gpu, sizeof(u64Int)*LocalTableSize, 
+                          sizeof(u64Int), win_info, MPI_COMM_WORLD, &mpi_win);
+  printf("log 105\n");
+  if (ret != MPI_SUCCESS) {
+      char error_string[MPI_MAX_ERROR_STRING];
+      int length;
+      MPI_Error_string(ret, error_string, &length);
+      printf("Process %d: MPI_Win_create failed: %s\n", MyProc, error_string);
+      
+      // 回退到主机内存
+      printf("Process %d: Falling back to host memory\n", MyProc);
+      MPI_Win_create(HPCC_Table, sizeof(u64Int)*LocalTableSize, 
+                    sizeof(u64Int), win_info, MPI_COMM_WORLD, &mpi_win);
+  }
+  printf("log 106\n");
+  MPI_Info_free(&win_info);
   u64Int remote_val;
-  cudaMemcpy(ran_gpu, ran, sizeof(s64Int), cudaMemcpyHostToDevice);
-  cudaMemcpy(updates_gpu, updates, sizeof(s64Int) * numNodes, cudaMemcpyHostToDevice);
-  cudaMemcpy(all_updates_gpu, all_updates, sizeof(s64Int) * numNodes, cudaMemcpyHostToDevice);
-  cudaMemcpy(count_gpu, count, sizeof(s64Int), cudaMemcpyHostToDevice);
-  
-  nvshmem_barrier_all();
+  CUDA_CHECK(cudaMemcpy(HPCC_Table_gpu, HPCC_Table, sizeof(u64Int)*LocalTableSize, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaDeviceSynchronize()); // 确保传输完成
+  // 确保所有进程准备就绪
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Win_fence(0, mpi_win);
   /* Begin timed section */
-
   RealTime = -RTSEC();
-  launch<<<1,1>>>(mype, numProcesses,MyProc, 
-  LocalTableSize, remote_val, verify, ran_gpu,
- updates, HPCC_Table_gpu,ProcNumUpdates, logTableSize,logNumProcs);
-  cudaDeviceSynchronize();
-
-  nvshmem_barrier_all();
+  for (iterate = 0; iterate < niterate; iterate++) {
+        *ran = (*ran << 1) ^ ((s64Int) *ran < ZERO64B ? POLY : ZERO64B);
+        remote_proc = (*ran >> logTableLocal) & (numNodes - 1);
+        
+        if(remote_proc == MyProc)
+            remote_proc = (remote_proc + 1) % numNodes;
+            
+        s64Int local_index = *ran & (LocalTableSize-1);
+        if (local_index >= 0 && local_index < LocalTableSize && 
+            remote_proc >= 0 && remote_proc < numNodes) {
+            
+            // CUDA-Aware MPI: 直接传输GPU内存数据
+            // 添加错误处理
+            int ret;
+            u64Int remote_val;
+            ret = MPI_Get(&remote_val, 1, MPI_UINT64_T, remote_proc, 
+                        local_index, 1, MPI_UINT64_T, mpi_win);
+            if (ret != MPI_SUCCESS) {
+                fprintf(stderr, "MPI_Get failed with error %d\n", ret);
+                continue;
+            }
+            
+            remote_val ^= *ran;
+            
+            // 直接更新GPU内存
+            ret = MPI_Put(&remote_val, 1, MPI_UINT64_T, remote_proc,
+                  local_index, 1, MPI_UINT64_T, mpi_win);
+            if (ret != MPI_SUCCESS) {
+                fprintf(stderr, "MPI_Put failed with error %d\n", ret);
+            }
+            //MPI_Win_flush(remote_proc, mpi_win);
+        }
+    }
+  MPI_Win_fence(0, mpi_win);  // 添加这行
+  MPI_Barrier(MPI_COMM_WORLD);
   /* End timed section */
   RealTime += RTSEC();
 
-  //printf("log 1\n");
+
 
   /* Print timing results */
   if (MyProc == 0){
     *GUPs = 1e-9*NumUpdates / RealTime;
-#ifndef __CUDA_ARCH__
     fprintf( outFile, "Real time used = %.6f seconds\n", RealTime );
     fprintf( outFile, "%.9f Billion(10^9) Updates    per second [GUP/s]\n",
              *GUPs );
     fprintf( outFile, "%.9f Billion(10^9) Updates/PE per second [GUP/s]\n",
              *GUPs / NumProcs );
-#endif
   }
  
   if(verify){
     for (j = 1; j < numNodes; j++)
       updates[0] += updates[j];
     int cpu = sched_getcpu();
-#ifndef __CUDA_ARCH__
-    printf("PE%d CPU%d  updates:%lld\n",MyProc,cpu,(long long)updates[0]);
-#endif
+    printf("PE%d CPU%d  updates:%lld\n",MyProc,cpu,(long long)updates[0]);  // Fix: use proper format specifier
 
-    nvshmem_longlong_sum_reduce(NVSHMEMX_TEAM_NODE,all_updates,updates,numNodes); // Fix: use numNodes instead of NumProcs
-    if(MyProc == 0){
+  // 替换 shmem_longlong_sum_to_all
+  MPI_Allreduce(updates, all_updates, numNodes, MPI_LONG_LONG, 
+                  MPI_SUM, MPI_COMM_WORLD);
+  if(MyProc == 0){
       for (j = 1; j < numNodes; j++)
         all_updates[0] += all_updates[j];
       if(ProcNumUpdates*NumProcs == all_updates[0])
@@ -419,7 +396,7 @@ int main(int argc, char **argv)
         printf("Verification failed!\n");
     }
   }
-  nvshmem_barrier_all();
+  MPI_Barrier(MPI_COMM_WORLD);
   /* End verification phase */
 
   // Fix memory deallocation order - free in reverse allocation order
@@ -427,19 +404,17 @@ int main(int argc, char **argv)
   free(updates);
   free(ran);
   free(count);
-  nvshmem_barrier_all();
-  //printf("log 0.5\n");
+  MPI_Barrier(MPI_COMM_WORLD);
+
   /* Deallocate memory (in reverse order of allocation which should
  *      help fragmentation) */
 
-  nvshmem_free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
+  free( HPCC_Table );  // Fix: use shmem_free instead of HPCC_free
   failed_table:
 
-#ifndef __CUDA_ARCH__
   if (0 == MyProc) if (outFile != stderr) fclose( outFile );
-#endif
 
-  nvshmem_barrier_all();
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Add missing deallocations
   free(NumErrors);
@@ -453,9 +428,9 @@ int main(int argc, char **argv)
   free(rAbort);
   free(sAbort);
 
-  nvshmem_barrier_all();
-  //printf("log 0.6\n");
-  nvshmem_finalize();
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  MPI_Finalize();
 
   return 0;
 }

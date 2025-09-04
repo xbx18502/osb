@@ -28,7 +28,7 @@ export OMPI_MCA_btl_openib_allow_ib=0
 export OMPI_MCA_btl="^openib"
 export OMPI_MCA_plm_rsh_agent="/usr/bin/pjrsh"
 
-cd ../GUPs_nvshmem
+cd ../bin
 mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   -hostfile ${PJM_O_NODEINF} \
   -np 8 --npernode 4 \
@@ -39,4 +39,4 @@ mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   --mca btl ^openib \
   --mca orte_base_help_aggregate 0 \
   --mca plm_rsh_args "-o StrictHostKeyChecking=no" \
-  ./gups.out
+  ./gups_nvshmem.out
