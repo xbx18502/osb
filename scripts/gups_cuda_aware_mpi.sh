@@ -1,6 +1,6 @@
 #!/bin/bash
 #PJM -L rscgrp=b-batch
-#PJM -L node=2
+#PJM -L node=1
 #PJM -L elapse=00:08:00
 #PJM -j
 #PJM -S
@@ -39,7 +39,7 @@ export HCOLL_ENABLE_GPU=1
 cd ../bin
 mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   -hostfile ${PJM_O_NODEINF} \
-  -np 8 --npernode 4 \
+  -np 4 --npernode 4 \
   -x PATH -x LD_LIBRARY_PATH -x CUDA_HOME -x NVSHMEM_HOME -x MPI_HOME -x NCCL_HOME \
   -x NVSHMEM_BOOTSTRAP -x OMPI_MCA_btl_openib_warn_no_device_params_found \
   -x OMPI_MCA_btl_openib_allow_ib -x OMPI_MCA_btl \

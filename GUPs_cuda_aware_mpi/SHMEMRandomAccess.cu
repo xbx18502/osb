@@ -326,8 +326,12 @@ int main(int argc, char **argv)
   // 确保所有进程准备就绪
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Win_fence(0, mpi_win);
+  CUDA_CHECK(cudaMalloc((void**)&remote_val,sizeof(u64Int)));
   /* Begin timed section */
   RealTime = -RTSEC();
+  u64Int *local_index_d;
+  CUDA_CHECK(cudaMalloc((void**)&local_index_d,sizeof(u64Int)));
+  printf("log 107\n");
   for (iterate = 0; iterate < niterate; iterate++) {
         *ran = (*ran << 1) ^ ((s64Int) *ran < ZERO64B ? POLY : ZERO64B);
         remote_proc = (*ran >> logTableLocal) & (numNodes - 1);
@@ -336,13 +340,15 @@ int main(int argc, char **argv)
             remote_proc = (remote_proc + 1) % numNodes;
             
         s64Int local_index = *ran & (LocalTableSize-1);
+        CUDA_CHECK(cudaMemcpy(local_index_d, &local_index, sizeof(u64Int), cudaMemcpyHostToDevice));
+        //printf("log 108\n");
         if (local_index >= 0 && local_index < LocalTableSize && 
             remote_proc >= 0 && remote_proc < numNodes) {
             
             // CUDA-Aware MPI: 直接传输GPU内存数据
             // 添加错误处理
             int ret;
-            u64Int remote_val;
+            //u64Int remote_val;
             ret = MPI_Get(&remote_val, 1, MPI_UINT64_T, remote_proc, 
                         local_index, 1, MPI_UINT64_T, mpi_win);
             if (ret != MPI_SUCCESS) {
