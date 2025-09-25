@@ -22,6 +22,11 @@ export LD_LIBRARY_PATH="$NCCL_HOME/lib:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH=/home/tmp/libosmcomp:$LD_LIBRARY_PATH
 
 export NVSHMEM_BOOTSTRAP=MPI
+export NVSHMEM_REMOTE_TRANSPORT=ibrc
+export NVSHMEM_DISABLE_IB_NATIVE_ATOMICS=1
+export NVSHMEM_ENABLE_NIC_PE_MAPPING=false
+export NVSHMEM_IB_ENABLE_IBGDA=1
+#export NVSHMEM_DEBUG=INFO
 # 禁用 OpenIB 相关警告和错误
 export OMPI_MCA_btl_openib_warn_no_device_params_found=0
 export OMPI_MCA_btl_openib_allow_ib=0
