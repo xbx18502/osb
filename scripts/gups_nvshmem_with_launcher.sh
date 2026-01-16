@@ -21,27 +21,11 @@ export LD_LIBRARY_PATH="$CUDA_HOME/lib64:$MPI_HOME/lib:$NVSHMEM_HOME/lib:$LD_LIB
 export LD_LIBRARY_PATH="$NCCL_HOME/lib:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH=/home/tmp/libosmcomp:$LD_LIBRARY_PATH
 
-export NVSHMEM_BOOTSTRAP=MPI
-export NVSHMEM_REMOTE_TRANSPORT=ibrc
-export NVSHMEM_DISABLE_IB_NATIVE_ATOMICS=0
-export NVSHMEM_ENABLE_NIC_PE_MAPPING=false
-export NVSHMEM_IB_ENABLE_IBGDA=0
-export NVSHMEM_DEBUG=INFO
-# 禁用 OpenIB 相关警告和错误
-export OMPI_MCA_btl_openib_warn_no_device_params_found=0
-export OMPI_MCA_btl_openib_allow_ib=0
-export OMPI_MCA_btl="^openib"
+
 export OMPI_MCA_plm_rsh_agent="/usr/bin/pjrsh"
 
 cd ../bin
 mpirun --display-allocation --display-map --map-by socket --bind-to socket \
   -hostfile ${PJM_O_NODEINF} \
   -np 8 --npernode 4 \
-  -x PATH -x LD_LIBRARY_PATH -x CUDA_HOME -x NVSHMEM_HOME -x MPI_HOME -x NCCL_HOME \
-  -x NVSHMEM_BOOTSTRAP -x OMPI_MCA_btl_openib_warn_no_device_params_found \
-  -x OMPI_MCA_btl_openib_allow_ib -x OMPI_MCA_btl \
-  --mca btl_openib_warn_no_device_params_found 0 \
-  --mca btl ^openib \
-  --mca orte_base_help_aggregate 0 \
-  --mca plm_rsh_args "-o StrictHostKeyChecking=no" \
-  ./gups_nvshmem.out
+  ./gups_nvshmem_with_launcher.out
